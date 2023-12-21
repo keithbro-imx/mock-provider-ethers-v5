@@ -1,5 +1,24 @@
 import { Fragment, Interface, JsonFragment } from "@ethersproject/abi";
 
+export class UnexpectedEthCall extends Error {
+  constructor(calldata: string, method?: string) {
+    super(`unexpected eth_call for ${method || calldata}`);
+  }
+}
+
+export class InvalidFunctionData extends Error {
+  constructor(method: string, args: any[], err: Error) {
+    super(`invalid function arguments for ${method}`);
+    this.stack = err.stack;
+  }
+}
+
+export class InvalidFunction extends Error {
+  constructor(method: string) {
+    super(`function "${method}" does not exist on ABI`);
+  }
+}
+
 export class MockProvider {
   requestResponse = new Map<string, string | Error>();
   iface: Interface;
@@ -36,13 +55,15 @@ export class MockProvider {
     });
 
     if (matchingFragment) {
-      console.log(`No matching call for ${matchingFragment.name}`);
+      const err = new UnexpectedEthCall(params[0].data, matchingFragment.name);
+      console.warn(err.message);
       console.log(this.iface.decodeFunctionData(matchingFragment.name, params[0].data).params);
+      throw err;
     } else {
-      console.log(`No matching fragment for ${params[0].data}`);
+      const err = new UnexpectedEthCall(params[0].data);
+      console.warn(err.message);
+      throw err;
     }
-
-    throw new Error('Unexpected eth_call');
   }
 
   mockEthCall(expectedMethod: string, expectedArgs: any[], result: any[] | Error): MockProvider {
@@ -63,10 +84,14 @@ export class MockProvider {
       return this.iface.encodeFunctionData(expectedMethod, expectedArgs);
     } catch (err) {
       if (err instanceof Error) {
-        throw new Error(`Failed to mockEthCall for ${expectedMethod} - ${err.message}`);
-      } else {
-        throw err;
+        if (err.message.startsWith('no matching function')) {
+          throw new InvalidFunction(expectedMethod);
+        }
+        if (err.message.startsWith('types/values length mismatch')) {
+          throw new InvalidFunctionData(expectedMethod, expectedArgs, err);
+        }
       }
+      throw err;
     }
   }
 }
