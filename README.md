@@ -5,6 +5,8 @@
 Mock a call to the getApproved method, with one input and one output.
 
 ```ts
+import { MockProvider } from 'mock-provider-ethers-v5'
+
 const mockProvider = new MockProvider(ERC721ABI).mockEthCall(
   'getApproved',
   [tokenId],
@@ -38,4 +40,12 @@ const mockProvider = new MockProvider(ERC721ABI).mockEthCall(
   [tokenId],
   new Error('Call reverted')
 )
+```
+
+Convert to a ethers Web3Provider.
+
+```ts
+import { providers } from 'ethers'
+
+const provider = providers.Web3Provider(mockProvider)
 ```
